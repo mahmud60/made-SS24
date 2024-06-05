@@ -1,14 +1,6 @@
 pipeline ProductTransported{
 
-    ProductTransportedExtractor
-        -> ProductTransportedTextFileInterpreter
-        -> ProductTransportedTextRangeSelector
-        -> ProductTransportedCSVInterpreter
-        -> ProductTransportedHeaderWriter
-        -> ProductTransportedHeaderWriter2
-        -> ProductTransportedTableInterpreter
-        -> ProductTransportedLoader;
-
+    // extracting data from source file
     block ProductTransportedExtractor oftype HttpExtractor {
         url:"https://www-genesis.destatis.de/genesis/downloads/00/tables/46131-0014_00.csv";
     }
@@ -17,7 +9,7 @@ pipeline ProductTransported{
         encoding:"latin3";
     }
 
-
+    // parsing data as CSV
     block ProductTransportedTextRangeSelector oftype TextRangeSelector {
         lineFrom:8;
     }
@@ -55,6 +47,16 @@ pipeline ProductTransported{
         table:'goods';
         file:'goodsTransportedByTrain.sqlite';
     }
+
+    //chained pipes
+    ProductTransportedExtractor
+    -> ProductTransportedTextFileInterpreter
+    -> ProductTransportedTextRangeSelector
+    -> ProductTransportedCSVInterpreter
+    -> ProductTransportedHeaderWriter
+    -> ProductTransportedHeaderWriter2
+    -> ProductTransportedTableInterpreter
+    -> ProductTransportedLoader;
 
     constraint NumeriConstrant on decimal:
         value >= 0;
