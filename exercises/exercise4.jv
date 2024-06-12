@@ -1,0 +1,89 @@
+pipeline TemperaturePipeline {
+
+    block TemperatureFileExtractor oftype GTFSExtractor {
+        url: "https://www.mowesta.com/data/measure/mowesta-dataset-20221107.zip";
+    }
+
+    block TemperatureFilePicker oftype FilePicker {
+        path: "/data.csv";
+    }
+
+    block TemperatureTextFileInterpreter oftype TextFileInterpreter {
+    }
+
+    block TemperatureCSVInterpreter oftype CSVInterpreter   {
+    delimiter: ";";
+    }
+
+    block TemperatureColumnDeleter oftype ColumnDeleter {
+        delete: [column F, column G, column H, column I];
+    }
+
+    block DataSelector oftype CellRangeSelector   {
+        select: range A1:K*;
+    }
+
+    block TemperaturesCellWriter1 oftype CellWriter {
+        at:range A1:E1; 
+        write:["id", 
+        "producer",  
+        "model",     
+        "month",     
+        "temperature"
+        ];
+    }
+
+    block TemperaturesCellWriter2 oftype CellWriter { 
+        at:cell J1; 
+        write:["battery_temperature"];
+        }
+
+    block TemperaturesTableInterpreter oftype TableInterpreter    {
+        header: true;
+        columns: [
+        "id" oftype integer,
+        "producer" oftype text,
+        "model" oftype text,
+        "month" oftype integer,
+        "temperature" oftype decimal,
+        "battery_temperature" oftype decimal,
+        ];
+    }
+
+    block TemperatureConverter oftype TableTransformer {
+        inputColumns: ['temperature',];
+        outputColumn: 'temperature';
+        use: CelsiusToFahrenheit;
+    }
+
+    block BatteryTemperatureConverter oftype TableTransformer {
+        inputColumns: ['battery_temperature',];
+        outputColumn: 'battery_temperature';
+        use: CelsiusToFahrenheit;
+    }
+
+
+    transform CelsiusToFahrenheit   {
+        from Celsius oftype decimal;
+        to Fahrenheit oftype decimal;
+        Fahrenheit: (Celsius * 9/5) + 32;
+    }
+
+    block DataLoader oftype SQLiteLoader{
+        table: 'temperatures';
+        file: 'temperatures.sqlite';
+    }
+
+    TemperatureFileExtractor 
+        -> TemperatureFilePicker
+        -> TemperatureTextFileInterpreter
+        -> TemperatureCSVInterpreter
+        -> DataSelector
+        -> TemperaturesCellWriter1
+        -> TemperaturesCellWriter2
+        -> TemperatureColumnDeleter
+        -> TemperaturesTableInterpreter
+        -> TemperatureConverter
+        -> BatteryTemperatureConverter
+        -> DataLoader;
+}
