@@ -2,6 +2,7 @@ import pandas as pd
 import opendatasets as od
 from sqlalchemy import create_engine
 import requests
+import numpy as np
 
 class Pipeline:
     
@@ -14,15 +15,14 @@ class Pipeline:
             dataset = pd.read_csv('https://zenodo.org/records/10562476/files/GCB2023v43_MtCO2_flat.csv')
             carbon_emission = pd.DataFrame(dataset)
             print("CSV file has been loaded successfully:")
-            print(carbon_emission.head())  # Display the first few rows of the DataFrame
             carbon_emission = pd.DataFrame(dataset)
             carbon_emission = carbon_emission.drop(['ISO 3166-1 alpha-3','UN M49'], axis=1)
 
             cols = carbon_emission.columns.difference(['Country', 'Year'])
             for column in cols:
                 carbon_emission[column] = pd.to_numeric(carbon_emission[column], errors='coerce')
-            medians = carbon_emission.T.rolling(5, min_periods=0, closed='both').median()
-            carbon_emission.fillna(medians, inplace=True)
+            #medians = carbon_emission.T.rolling(5, min_periods=0, closed='both').median()
+            carbon_emission.fillna(0, inplace=True)
             carbon_emission['Year'] = carbon_emission['Year'].astype(int)
             filtered_data = carbon_emission[carbon_emission['Year'] >= 1996]
             filtered_data.to_sql('emissions', con=self.engine, index=False, if_exists='replace')
@@ -35,7 +35,7 @@ class Pipeline:
             # Catch other pandas read_csv errors not specified above
             print(f"An error occurred: {str(e)}")
         
-    
+
     
     def pull_renewable_energy_data(self):
         try:
@@ -52,14 +52,14 @@ class Pipeline:
                                                     'Renewable electricity output (GWh) [4.1.2_REN.ELECTRICITY.OUTPUT]', 'Renewable electricity share of total electricity output (%) [4.1_SHARE.RE.IN.ELECTRICITY]',
                                                     'Renewable energy share of TFEC (%) [2.1_SHARE.TOTAL.RE.IN.TFEC]', 'Total electricity output (GWh) [4.1.1_TOTAL.ELECTRICITY.OUTPUT]',
                                                     'Total final energy consumption (TFEC) (TJ) [1.1_TOTAL.FINAL.ENERGY.CONSUM]'], axis=1)
-            renewable_energy = renewable_energy.rename(columns={'Time':'Year', 'Renewable energy consumption (TJ) [3.1_RE.CONSUMPTION]':'Renewable energy consumption'})
+            renewable_energy = renewable_energy.rename(columns={'Country Name': 'Country','Time':'Year', 'Renewable energy consumption (TJ) [3.1_RE.CONSUMPTION]':'Renewable energy consumption'})
             renewable_energy = renewable_energy.iloc[:-2]
-            renewable_energy = renewable_energy.dropna(subset=['Country Name'])
-            cols = renewable_energy.columns.difference(['Country Name'])
+            renewable_energy = renewable_energy.dropna(subset=['Country'])
+            cols = renewable_energy.columns.difference(['Country'])
             renewable_energy['Year'] = renewable_energy['Year'].astype(int)
             for column in cols:
                 renewable_energy[column] = pd.to_numeric(renewable_energy[column], errors='coerce')
-            renewable_energy.fillna(0, inplace=True)
+            renewable_energy['Renewable energy consumption'] = renewable_energy['Renewable energy consumption'].ffill()
             renewable_energy.to_sql('renewable', con=self.engine, index=False, if_exists='replace')
 
         except requests.exceptions.HTTPError as he:
@@ -68,6 +68,8 @@ class Pipeline:
             print(f"Connection error occurred: {ce}")  # Handle networking issues
         except Exception as e:
             print(f"An unexpected error occurred: {e}")  # Catch-all for any other exceptions
+    
+
     
     def initialize_Pipeline(self):
         self.pull_carbon_emission_data()
