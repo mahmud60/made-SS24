@@ -23,7 +23,6 @@ class Test(unittest.TestCase):
         
         
         #run the data pipeline
-        # Create an instance of the Pipeline class
         pipeline_instance = Pipeline()
 
         # Run the pipeline
